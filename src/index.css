@@ -8,16 +8,6 @@
   }
 }
 
-/* ── Piscar idle ─────────────────────────────────────────── */
-@keyframes blink {
-  0%, 88%, 100% { transform: scaleY(0.45); }
-  92%           { transform: scaleY(1.8);  }
-  96%           { transform: scaleY(0.45); }
-}
-
-.eye-blink       { animation: blink 6s ease-in-out infinite; }
-.eye-blink-right { animation-delay: 0.08s; }
-
 /* ── Susto ao revelar senha ─────────────────────────────── */
 @keyframes eye-shock {
   0%   { transform: scaleY(0.95); }   /* parte do squint (digitando)  */

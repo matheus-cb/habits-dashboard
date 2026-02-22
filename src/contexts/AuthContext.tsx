@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
-  login: (credentials: LoginCredentials) => Promise<boolean>;
+  login: (credentials: LoginCredentials, rememberMe?: boolean) => Promise<boolean>;
   register: (credentials: RegisterCredentials) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
@@ -50,11 +50,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return errorMessages[message] || message;
   }
 
-  async function login(credentials: LoginCredentials) {
+  async function login(credentials: LoginCredentials, rememberMe = true) {
     try {
       setError(null);
       const { accessToken, user } = await authApi.login(credentials);
-      authApi.saveToken(accessToken);
+      authApi.saveToken(accessToken, rememberMe);
       setUser(user);
       return true;
     } catch (err: any) {

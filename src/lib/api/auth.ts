@@ -23,15 +23,18 @@ export const authApi = {
     return response.data.user;
   },
 
-  saveToken(token: string) {
-    localStorage.setItem('token', token);
+  saveToken(token: string, remember = true) {
+    const storage = remember ? localStorage : sessionStorage;
+    storage.setItem('token', token);
+    (remember ? sessionStorage : localStorage).removeItem('token');
   },
 
   removeToken() {
     localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
   },
 
   getToken(): string | null {
-    return localStorage.getItem('token');
+    return localStorage.getItem('token') ?? sessionStorage.getItem('token');
   },
 };
