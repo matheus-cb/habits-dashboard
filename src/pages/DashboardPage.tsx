@@ -2,33 +2,44 @@ import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHabits } from '@/hooks/useHabits';
 import HabitCard from '@/components/HabitCard';
-import CreateHabitModal from '@/components/CreateHabitModal';
+import HabitFormModal from '@/components/HabitFormModal';
+import type { Habit } from '@/types';
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
-  const { habits, loading, createHabit, deleteHabit, checkin } = useHabits();
+  const { habits, loading, createHabit, updateHabit, deleteHabit, checkin } = useHabits();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [doneTodayMap, setDoneTodayMap] = useState<Record<string, boolean>>({});
-  const [bestStreakMap, setBestStreakMap] = useState<Record<string, number>>({});
+  const [currentStreakMap, setCurrentStreakMap] = useState<Record<string, number>>({});
+  const [completionRateMap, setCompletionRateMap] = useState<Record<string, number>>({});
 
   const handleDoneTodayChange = useCallback((habitId: string, done: boolean) => {
     setDoneTodayMap(prev => ({ ...prev, [habitId]: done }));
   }, []);
 
-  const handleStatsLoaded = useCallback((habitId: string, bestStreak: number) => {
-    setBestStreakMap(prev => ({ ...prev, [habitId]: bestStreak }));
+  const handleStatsLoaded = useCallback((
+    habitId: string,
+    stats: { bestStreak: number; currentStreak: number; completionRate: number }
+  ) => {
+    setCurrentStreakMap(prev => ({ ...prev, [habitId]: stats.currentStreak }));
+    setCompletionRateMap(prev => ({ ...prev, [habitId]: stats.completionRate }));
   }, []);
 
+  const totalHabits = habits?.length ?? 0;
   const doneTodayCount = Object.values(doneTodayMap).filter(Boolean).length;
-  const bestStreak = Math.max(0, ...Object.values(bestStreakMap));
+  const maxCurrentStreak = Math.max(0, ...Object.values(currentStreakMap));
+  const avgCompletionRate = totalHabits > 0
+    ? Object.values(completionRateMap).reduce((sum, r) => sum + r, 0) / totalHabits
+    : 0;
 
   async function handleCreateHabit(data: { title: string; description?: string }) {
-    try {
-      await createHabit(data);
-      setShowCreateModal(false);
-    } catch (err) {
-      console.error('Erro ao criar hábito:', err);
-    }
+    await createHabit(data);
+  }
+
+  async function handleUpdateHabit(id: string, data: { title: string; description?: string }) {
+    await updateHabit(id, data);
+    setEditingHabit(null);
   }
 
   if (loading) {
@@ -64,18 +75,25 @@ export default function DashboardPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="text-3xl font-bold text-purple-600">{habits?.length || 0}</div>
+            <div className="text-3xl font-bold text-purple-600">{totalHabits}</div>
             <div className="text-sm text-gray-600 mt-1">Hábitos Ativos</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="text-3xl font-bold text-green-600">{doneTodayCount}</div>
+            <div className="text-xs text-gray-500 font-medium mt-0.5">
+              {totalHabits > 0 ? `${doneTodayCount}/${totalHabits} hábitos` : ''}
+            </div>
             <div className="text-sm text-gray-600 mt-1">Concluídos Hoje</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="text-3xl font-bold text-orange-600">🔥 {bestStreak}</div>
-            <div className="text-sm text-gray-600 mt-1">Melhor Sequência</div>
+            <div className="text-3xl font-bold text-orange-600">🔥 {maxCurrentStreak}</div>
+            <div className="text-sm text-gray-600 mt-1">Maior Streak Ativo</div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="text-3xl font-bold text-blue-600">{avgCompletionRate.toFixed(0)}%</div>
+            <div className="text-sm text-gray-600 mt-1">Taxa Geral (30d)</div>
           </div>
         </div>
 
@@ -109,8 +127,9 @@ export default function DashboardPage() {
                 habit={habit}
                 onCheckin={() => checkin(habit.id)}
                 onDelete={() => deleteHabit(habit.id)}
+                onEdit={() => setEditingHabit(habit)}
                 onDoneTodayChange={(done) => handleDoneTodayChange(habit.id, done)}
-                onStatsLoaded={(best) => handleStatsLoaded(habit.id, best)}
+                onStatsLoaded={(stats) => handleStatsLoaded(habit.id, stats)}
               />
             ))}
           </div>
@@ -119,9 +138,19 @@ export default function DashboardPage() {
 
       {/* Create Habit Modal */}
       {showCreateModal && (
-        <CreateHabitModal
+        <HabitFormModal
           onClose={() => setShowCreateModal(false)}
           onCreate={handleCreateHabit}
+        />
+      )}
+
+      {/* Edit Habit Modal */}
+      {editingHabit && (
+        <HabitFormModal
+          onClose={() => setEditingHabit(null)}
+          onCreate={handleCreateHabit}
+          onUpdate={handleUpdateHabit}
+          initialData={editingHabit}
         />
       )}
     </div>

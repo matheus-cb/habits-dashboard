@@ -34,6 +34,17 @@ export function useHabits() {
     }
   }
 
+  async function updateHabit(id: string, data: { title: string; description?: string }) {
+    try {
+      const updated = await habitsApi.update(id, data);
+      setHabits(habits.map(h => h.id === id ? updated : h));
+      return updated;
+    } catch (err: any) {
+      setError(err.message || 'Erro ao atualizar hábito');
+      throw err;
+    }
+  }
+
   async function deleteHabit(id: string) {
     try {
       await habitsApi.delete(id);
@@ -60,6 +71,7 @@ export function useHabits() {
     error,
     loadHabits,
     createHabit,
+    updateHabit,
     deleteHabit,
     checkin,
   };
