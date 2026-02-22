@@ -16,13 +16,9 @@ interface HabitCardProps {
 }
 
 function isTodayCheckin(dateStr: string): boolean {
-  const today = new Date();
-  const checkin = new Date(dateStr);
-  return (
-    today.getFullYear() === checkin.getFullYear() &&
-    today.getMonth() === checkin.getMonth() &&
-    today.getDate() === checkin.getDate()
-  );
+  const todayUTC = new Date().toISOString().slice(0, 10);
+  const checkinUTC = new Date(dateStr).toISOString().slice(0, 10);
+  return todayUTC === checkinUTC;
 }
 
 const DESCRIPTION_LIMIT = 80;
@@ -167,65 +163,68 @@ export default function HabitCard({ habit, onCheckin, onDelete, onEdit, onDoneTo
   const createdAt = format(new Date(habit.createdAt), "d 'de' MMM yyyy", { locale: ptBR });
 
   return (
-    <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-6 border border-gray-200">
-      <div className="flex justify-between items-start mb-2">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-bold text-gray-900 mb-1">{habit.title}</h3>
-          {description && (
-            <p className="text-sm text-gray-600 leading-snug">
-              {descTruncated}
-              {description.length > DESCRIPTION_LIMIT && (
-                <button
-                  onClick={() => setDescExpanded(prev => !prev)}
-                  className="ml-1 text-purple-600 hover:text-purple-700 text-xs font-medium"
-                >
-                  {descExpanded ? 'Ver menos' : 'Ver mais'}
-                </button>
-              )}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-1 ml-2 shrink-0">
-          <button
-            onClick={onEdit}
-            className="text-gray-400 hover:text-purple-500 transition-colors p-1"
-            title="Editar hábito"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-          </button>
-          {confirmDelete ? (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handleDeleteConfirm}
-                disabled={deleting}
-                className="text-xs bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded font-medium transition-colors"
-              >
-                {deleting ? '...' : 'Confirmar'}
-              </button>
-              <button
-                onClick={() => setConfirmDelete(false)}
-                className="text-xs text-gray-500 hover:text-gray-700 px-1 py-1"
-              >
-                Cancelar
-              </button>
-            </div>
-          ) : (
+    <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-6 border border-gray-200 flex flex-col">
+      {/* Área de conteúdo com altura mínima para manter posicionamento consistente */}
+      <div className="min-h-[88px]">
+        <div className="flex justify-between items-start mb-2">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">{habit.title}</h3>
+            {description && (
+              <p className="text-sm text-gray-600 leading-snug">
+                {descTruncated}
+                {description.length > DESCRIPTION_LIMIT && (
+                  <button
+                    onClick={() => setDescExpanded(prev => !prev)}
+                    className="ml-1 text-purple-600 hover:text-purple-700 text-xs font-medium"
+                  >
+                    {descExpanded ? 'Ver menos' : 'Ver mais'}
+                  </button>
+                )}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1 ml-2 shrink-0">
             <button
-              onClick={() => setConfirmDelete(true)}
-              className="text-gray-400 hover:text-red-500 transition-colors p-1"
-              title="Deletar hábito"
+              onClick={onEdit}
+              className="text-gray-400 hover:text-purple-500 transition-colors p-1"
+              title="Editar hábito"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
             </button>
-          )}
+            {confirmDelete ? (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={deleting}
+                  className="text-xs bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded font-medium transition-colors"
+                >
+                  {deleting ? '...' : 'Confirmar'}
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="text-xs text-gray-500 hover:text-gray-700 px-1 py-1"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                title="Deletar hábito"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
-      </div>
 
-      <p className="text-xs text-gray-400 mb-4">Criado em {createdAt}</p>
+        <p className="text-xs text-gray-400 mb-4">Criado em {createdAt}</p>
+      </div>
 
       {/* Stats */}
       {statsLoading ? (
