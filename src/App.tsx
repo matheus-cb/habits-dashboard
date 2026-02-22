@@ -3,6 +3,7 @@ import { useAuth } from './contexts/AuthContext';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import CalendarPage from './pages/CalendarPage';
 
 function App() {
   const { isAuthenticated, loading } = useAuth();
@@ -30,6 +31,7 @@ function App() {
     <Routes>
       <Route path="/" element={<DashboardPage />} />
       <Route path="/analytics" element={<AnalyticsPage />} />
+      <Route path="/calendar" element={<CalendarPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

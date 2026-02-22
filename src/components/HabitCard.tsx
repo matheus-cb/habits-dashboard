@@ -16,9 +16,13 @@ interface HabitCardProps {
 }
 
 function isTodayCheckin(dateStr: string): boolean {
-  const today = new Date().toISOString().split('T')[0];
-  const checkinDate = new Date(dateStr).toISOString().split('T')[0];
-  return today === checkinDate;
+  const today = new Date();
+  const checkin = new Date(dateStr);
+  return (
+    today.getFullYear() === checkin.getFullYear() &&
+    today.getMonth() === checkin.getMonth() &&
+    today.getDate() === checkin.getDate()
+  );
 }
 
 const DESCRIPTION_LIMIT = 80;
@@ -26,6 +30,8 @@ const DESCRIPTION_LIMIT = 80;
 export default function HabitCard({ habit, onCheckin, onDelete, onEdit, onDoneTodayChange, onStatsLoaded }: HabitCardProps) {
   const { stats, loading: statsLoading, reload } = useHabitStats(habit.id);
   const [checking, setChecking] = useState(false);
+  const [unchecking, setUnchecking] = useState(false);
+  const [todayCheckinId, setTodayCheckinId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [doneToday, setDoneToday] = useState(false);
@@ -53,9 +59,10 @@ export default function HabitCard({ habit, onCheckin, onDelete, onEdit, onDoneTo
     try {
       const data = await habitsApi.getCheckins(habit.id);
       setCheckins(data);
-      const done = data.some(c => isTodayCheckin(c.date));
-      setDoneToday(done);
-      onDoneTodayChange?.(done);
+      const todayCheckin = data.find(c => isTodayCheckin(c.date));
+      setDoneToday(!!todayCheckin);
+      setTodayCheckinId(todayCheckin?.id ?? null);
+      onDoneTodayChange?.(!!todayCheckin);
     } catch {
       // silently ignore
     }
@@ -66,21 +73,63 @@ export default function HabitCard({ habit, onCheckin, onDelete, onEdit, onDoneTo
     try {
       setChecking(true);
       await onCheckin();
-      setDoneToday(true);
-      onDoneTodayChange?.(true);
       await reload();
       const data = await habitsApi.getCheckins(habit.id);
       setCheckins(data);
+      const todayCheckin = data.find(c => isTodayCheckin(c.date));
+      setDoneToday(!!todayCheckin);
+      setTodayCheckinId(todayCheckin?.id ?? null);
+      onDoneTodayChange?.(!!todayCheckin);
     } catch (err: any) {
       const msg = err.message || '';
       if (msg.includes('already exists')) {
-        setDoneToday(true);
-        onDoneTodayChange?.(true);
+        // Checkin já existe — busca o ID para permitir desfazer
+        try {
+          const data = await habitsApi.getCheckins(habit.id);
+          setCheckins(data);
+          const todayCheckin = data.find(c => isTodayCheckin(c.date));
+          setDoneToday(true);
+          setTodayCheckinId(todayCheckin?.id ?? null);
+          onDoneTodayChange?.(true);
+        } catch {
+          setDoneToday(true);
+          onDoneTodayChange?.(true);
+        }
       } else {
         alert(msg || 'Erro ao fazer check-in');
       }
     } finally {
       setChecking(false);
+    }
+  }
+
+  async function handleUncheck() {
+    try {
+      setUnchecking(true);
+
+      // Sempre busca checkins frescos para garantir o ID correto
+      const freshData = await habitsApi.getCheckins(habit.id);
+      const todayCheckin = freshData.find(c => isTodayCheckin(c.date));
+
+      if (!todayCheckin) {
+        // Nenhum checkin de hoje encontrado — apenas limpa o estado
+        setDoneToday(false);
+        setTodayCheckinId(null);
+        onDoneTodayChange?.(false);
+        return;
+      }
+
+      await habitsApi.deleteCheckin(habit.id, todayCheckin.id);
+      setDoneToday(false);
+      setTodayCheckinId(null);
+      onDoneTodayChange?.(false);
+      await reload();
+      const data = await habitsApi.getCheckins(habit.id);
+      setCheckins(data);
+    } catch (err: any) {
+      alert(err.message || 'Erro ao desfazer check-in');
+    } finally {
+      setUnchecking(false);
     }
   }
 
@@ -200,9 +249,15 @@ export default function HabitCard({ habit, onCheckin, onDelete, onEdit, onDoneTo
 
       {/* Check-in Button */}
       {doneToday ? (
-        <div className="w-full bg-green-100 text-green-700 font-medium py-2.5 rounded-lg text-center mb-3">
-          ✅ Concluído hoje!
-        </div>
+        <button
+          onClick={handleUncheck}
+          disabled={unchecking}
+          title="Clique para desfazer o check-in de hoje"
+          className="w-full group bg-green-100 hover:bg-red-50 text-green-700 hover:text-red-600 font-medium py-2.5 rounded-lg text-center mb-3 transition-colors border border-transparent hover:border-red-200"
+        >
+          <span className="group-hover:hidden">{unchecking ? 'Desfazendo...' : '✅ Concluído hoje!'}</span>
+          <span className="hidden group-hover:inline">↩ Desfazer check-in</span>
+        </button>
       ) : (
         <button
           onClick={handleCheckin}

@@ -49,4 +49,16 @@ export const habitsApi = {
     const response = await apiClient<{ data: HabitStats }>(`/habits/${habitId}/stats`);
     return response.data;
   },
+
+  async checkinByDate(habitId: string, date: string): Promise<Checkin> {
+    const response = await apiClient<{ data: Checkin }>(`/habits/${habitId}/checkin`, {
+      method: 'POST',
+      body: JSON.stringify({ date }),
+    });
+    return response.data;
+  },
+
+  async deleteCheckin(habitId: string, checkinId: string): Promise<void> {
+    await apiClient(`/habits/${habitId}/checkins/${checkinId}`, { method: 'DELETE' });
+  },
 };

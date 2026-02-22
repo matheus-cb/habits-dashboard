@@ -25,7 +25,9 @@ export default function InteractiveEyes({
 }: InteractiveEyesProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [shockAnim, setShockAnim] = useState(false);
+  const [isBlinking, setIsBlinking] = useState(false);
   const prevShowPassword = useRef(false);
+  const blinkTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Dispara animação de choque quando a senha é revelada com campo de senha focado
   useEffect(() => {
@@ -42,13 +44,42 @@ export default function InteractiveEyes({
     }
   }, [showPassword, passwordFocused]);
 
-  // Três estados visuais
+  // Piscar periódico quando acordado
   const isSleeping = !passwordFocused && !textFocused;
+
+  useEffect(() => {
+    if (isSleeping) {
+      if (blinkTimeout.current) clearTimeout(blinkTimeout.current);
+      setIsBlinking(false);
+      return;
+    }
+
+    function scheduleBlink() {
+      const delay = 2500 + Math.random() * 3500; // 2.5s–6s entre piscadas
+      blinkTimeout.current = setTimeout(() => {
+        setIsBlinking(true);
+        blinkTimeout.current = setTimeout(() => {
+          setIsBlinking(false);
+          scheduleBlink();
+        }, 130); // duração da piscada
+      }, delay);
+    }
+
+    scheduleBlink();
+    return () => {
+      if (blinkTimeout.current) clearTimeout(blinkTimeout.current);
+    };
+  }, [isSleeping]);
+
+  // Três estados visuais (mantido abaixo para uso nos outros cálculos)
   const isExcited  = passwordFocused && showPassword;
   // isSemiOpen = qualquer campo focado sem showPassword ativo na senha
 
   // fechado=2.0 | semi-aberto=0.95 (email e senha) | super animado=0.18
-  const eyelidScaleY = isSleeping ? 2.0 : isExcited ? 0.18 : 0.95;
+  const eyelidScaleY = isBlinking ? 2.0 : isSleeping ? 2.0 : isExcited ? 0.18 : 0.95;
+  const eyelidTransition = isBlinking
+    ? 'transform 0.08s ease-in'
+    : 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
 
   // Pupila dilatada APENAS no estado super animado
   const pupilR = isExcited ? 13 : 9;
@@ -169,9 +200,10 @@ export default function InteractiveEyes({
                 style={{
                   transformOrigin: `${cx}px ${cy - SR}px`,
                   transform: `scaleY(${eyelidScaleY})`,
-                  transition: shockAnim ? 'none' : 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                  transition: shockAnim ? 'none' : eyelidTransition,
                 }}
                 className={getEyelidClass(id)}
+                aria-hidden="true"
               />
             </g>
             {/* Sobrancelha (bezier quadrático) */}

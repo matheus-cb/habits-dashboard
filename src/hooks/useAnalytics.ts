@@ -8,6 +8,7 @@ export interface AnalyticsData {
   checkinsMap: Record<string, Checkin[]>;
   loading: boolean;
   error: string | null;
+  refresh: () => Promise<void>;
 }
 
 export function useAnalytics(): AnalyticsData {
@@ -62,5 +63,5 @@ export function useAnalytics(): AnalyticsData {
     }
   }
 
-  return { habits, statsMap, checkinsMap, loading, error };
+  return { habits, statsMap, checkinsMap, loading, error, refresh: loadAnalytics };
 }

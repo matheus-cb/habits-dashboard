@@ -15,7 +15,7 @@ export async function apiClient<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
 
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,

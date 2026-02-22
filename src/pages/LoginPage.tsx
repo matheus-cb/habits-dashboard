@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import InteractiveEyes from '@/components/InteractiveEyes';
 import SocialLoginButtons from '@/components/SocialLoginButtons';
@@ -25,6 +26,7 @@ function EyeClosedIcon() {
 
 export default function LoginPage() {
   const { login, register, error } = useAuth();
+  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
@@ -41,9 +43,11 @@ export default function LoginPage() {
     e.preventDefault();
 
     if (isLogin) {
-      await login({ email: formData.email, password: formData.password }, rememberMe);
+      const ok = await login({ email: formData.email, password: formData.password }, rememberMe);
+      if (ok) navigate('/', { replace: true });
     } else {
-      await register(formData);
+      const ok = await register(formData);
+      if (ok) navigate('/', { replace: true });
     }
   }
 
