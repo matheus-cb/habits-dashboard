@@ -27,51 +27,46 @@ export default function InteractiveEyes({
   const [shockAnim, setShockAnim] = useState(false);
   const prevShowPassword = useRef(false);
 
-  // Dispara animação de choque quando a senha é revelada
+  // Dispara animação de choque quando a senha é revelada com campo de senha focado
   useEffect(() => {
     if (!showPassword) {
       setShockAnim(false);
       prevShowPassword.current = false;
       return;
     }
-    if (!prevShowPassword.current) {
+    if (!prevShowPassword.current && passwordFocused) {
       setShockAnim(true);
       const t = setTimeout(() => setShockAnim(false), 650);
       prevShowPassword.current = true;
       return () => clearTimeout(t);
     }
-  }, [showPassword]);
+  }, [showPassword, passwordFocused]);
 
-  // Prioridade: showPassword > passwordFocused > textFocused > idle
-  const isIdle = !passwordFocused && !showPassword && !textFocused;
+  // Três estados visuais
+  const isSleeping = !passwordFocused && !textFocused;
+  const isExcited  = passwordFocused && showPassword;
+  // isSemiOpen = qualquer campo focado sem showPassword ativo na senha
 
-  const eyelidScaleY = showPassword
-    ? 0.18
-    : passwordFocused
-    ? 0.95
-    : textFocused
-    ? 0.38
-    : 0.45;
+  // fechado=2.0 | semi-aberto=0.95 (email e senha) | super animado=0.18
+  const eyelidScaleY = isSleeping ? 2.0 : isExcited ? 0.18 : 0.95;
 
-  const pupilR = showPassword ? 13 : textFocused ? 9 : 9;
+  // Pupila dilatada APENAS no estado super animado
+  const pupilR = isExcited ? 13 : 9;
 
   // Atualiza posição da pupila via DOM — sem re-render a cada tecla
   useEffect(() => {
     let offsetX = 0;
     let offsetY = 0;
 
-    if (showPassword) {
-      // Olha direto para frente (susto)
+    if (isExcited) {
+      // Super animado — olha direto para frente
       offsetX = 0;
       offsetY = 0;
-    } else if (passwordFocused) {
-      // Leitura: varre da esquerda para direita, olhando para baixo
-      offsetX = Math.min(passwordLength * 0.7, 8) - 4;
-      offsetY = 5;
-    } else if (textFocused) {
-      // Varredura suave da esquerda para direita
-      offsetX = Math.min(textLength * 0.4, 6);
-      offsetY = 2;
+    } else if (passwordFocused || textFocused) {
+      // Semi-aberto — deriva suavemente para a direita conforme digita
+      const length = passwordFocused ? passwordLength : textLength;
+      offsetX = Math.min(length * 0.12, 3);
+      offsetY = 8;
     }
 
     EYES.forEach(({ id }) => {
@@ -82,22 +77,20 @@ export default function InteractiveEyes({
       if (glint) glint.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
       if (glint2) glint2.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
     });
-  }, [passwordLength, passwordFocused, showPassword, textFocused, textLength]);
+  }, [passwordLength, passwordFocused, isExcited, textFocused, textLength]);
 
   const getBrowControlY = (cy: number) => {
-    if (showPassword) return cy - SR - 30;    // sobrancelha disparada para cima
-    if (passwordFocused) return cy - SR - 13; // franzida/concentrada
-    if (textFocused) return cy - SR - 22;     // levemente levantada
-    return cy - SR - 19;                      // posição normal
+    if (isExcited) return cy - SR - 30;   // disparada para cima
+    if (!isSleeping) return cy - SR - 20; // semi-aberto — levemente levantada
+    return cy - SR - 16;                  // relaxada (sleeping)
   };
 
-  // Translação vertical extra da sobrancelha no estado revelado
-  const browTranslateY = showPassword ? -8 : 0;
+  // Translação vertical extra da sobrancelha no estado animado
+  const browTranslateY = isExcited ? -8 : 0;
 
   const getEyelidClass = (id: string) => {
     if (shockAnim) return id === 'right' ? 'eye-shocked eye-shocked-right' : 'eye-shocked';
-    if (isIdle) return id === 'right' ? 'eye-blink eye-blink-right' : 'eye-blink';
-    return '';
+    return ''; // sem piscar — olho fechado (sleeping) ou aberto por CSS/style
   };
 
   return (
@@ -112,15 +105,20 @@ export default function InteractiveEyes({
       <defs>
         {EYES.map(({ id }) => (
           <radialGradient key={id} id={`iris-grad-${id}`} cx="38%" cy="32%" r="65%">
-            {/* Íris azul céu — amigável e calorosa */}
-            <stop offset="0%"   stopColor="#e0f2fe" />
-            <stop offset="40%"  stopColor="#7dd3fc" />
-            <stop offset="78%"  stopColor="#38bdf8" />
-            <stop offset="100%" stopColor="#0369a1" />
+            {/* Íris lilás suave */}
+            <stop offset="0%"   stopColor="#fefcff" />
+            <stop offset="40%"  stopColor="#ede8f9" />
+            <stop offset="78%"  stopColor="#c5b8e6" />
+            <stop offset="100%" stopColor="#9278c0" />
           </radialGradient>
         ))}
+        {EYES.map(({ id, cx, cy }) => (
+          <clipPath key={`clip-${id}`} id={`clip-eye-${id}`}>
+            <circle cx={cx} cy={cy} r={SR} />
+          </clipPath>
+        ))}
         <filter id="eye-shadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#0284c722" />
+          <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#c5b8e618" />
         </filter>
       </defs>
 
@@ -134,47 +132,48 @@ export default function InteractiveEyes({
             {/* Esclera */}
             <circle
               cx={cx} cy={cy} r={SR}
-              fill="white" stroke="#e0f2fe" strokeWidth="1.5"
+              fill="white" stroke="#ede8f9" strokeWidth="1.5"
               filter="url(#eye-shadow)"
             />
             {/* Íris com gradiente radial azul */}
             <circle cx={cx} cy={cy} r={IR} fill={`url(#iris-grad-${id})`} />
             {/* Anel limbal (efeito de profundidade) */}
-            <circle cx={cx} cy={cy} r={IR} fill="none" stroke="#0369a1" strokeWidth="1" opacity={0.4} />
+            <circle cx={cx} cy={cy} r={IR} fill="none" stroke="#9278c0" strokeWidth="1" opacity={0.25} />
             {/* Pupila */}
             <circle
               id={`pupil-${id}`}
               cx={cx} cy={cy} r={pupilR}
               fill="#0c1a2e"
-              style={{ transition: 'transform 0.15s ease, r 0.35s ease' }}
+              style={{ transition: 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), r 0.35s ease' }}
             />
             {/* Reflexo principal */}
             <circle
               id={`glint-${id}`}
               cx={cx - 4} cy={cy - 5} r={3}
               fill="white" opacity={0.9}
-              style={{ transition: 'transform 0.15s ease' }}
+              style={{ transition: 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
             />
             {/* Reflexo secundário */}
             <circle
               id={`glint2-${id}`}
               cx={cx + 4} cy={cy - 7} r={1.5}
               fill="white" opacity={0.55}
-              style={{ transition: 'transform 0.15s ease' }}
+              style={{ transition: 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
             />
-            {/* Pálpebra superior como arco */}
-            <path
-              id={`eyelid-${id}`}
-              d={eyelidPath}
-              fill="white"
-              style={{
-                transformOrigin: `${cx}px ${cy - SR}px`,
-                transform: `scaleY(${eyelidScaleY})`,
-                // Desativa transition durante a animação de choque para não conflitar
-                transition: shockAnim ? 'none' : 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-              }}
-              className={getEyelidClass(id)}
-            />
+            {/* Pálpebra superior — <g> com clip fixo, path anima dentro */}
+            <g clipPath={`url(#clip-eye-${id})`}>
+              <path
+                id={`eyelid-${id}`}
+                d={eyelidPath}
+                fill="white"
+                style={{
+                  transformOrigin: `${cx}px ${cy - SR}px`,
+                  transform: `scaleY(${eyelidScaleY})`,
+                  transition: shockAnim ? 'none' : 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+                className={getEyelidClass(id)}
+              />
+            </g>
             {/* Sobrancelha (bezier quadrático) */}
             <path
               d={`M ${cx - 20},${browY} Q ${cx},${controlY} ${cx + 20},${browY}`}
