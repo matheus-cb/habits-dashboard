@@ -7,3 +7,41 @@
     @apply bg-gray-50 text-gray-900;
   }
 }
+
+/* ── Piscar idle ─────────────────────────────────────────── */
+@keyframes blink {
+  0%, 88%, 100% { transform: scaleY(0.45); }
+  92%           { transform: scaleY(1.8);  }
+  96%           { transform: scaleY(0.45); }
+}
+
+.eye-blink       { animation: blink 6s ease-in-out infinite; }
+.eye-blink-right { animation-delay: 0.08s; }
+
+/* ── Susto ao revelar senha ─────────────────────────────── */
+@keyframes eye-shock {
+  0%   { transform: scaleY(0.95); }   /* parte do squint (digitando)  */
+  18%  { transform: scaleY(0.02); }   /* dispara aberto — susto       */
+  45%  { transform: scaleY(0.22); }   /* spring de retorno            */
+  68%  { transform: scaleY(0.10); }   /* oscila                       */
+  85%  { transform: scaleY(0.18); }
+  100% { transform: scaleY(0.18); }   /* assenta no valor final       */
+}
+
+.eye-shocked {
+  animation: eye-shock 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.eye-shocked-right {
+  animation-delay: 0.05s;
+}
+
+/* ── Fade-in utilitário ──────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0);   }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease forwards;
+}
