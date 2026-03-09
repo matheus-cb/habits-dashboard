@@ -10,6 +10,7 @@ export interface Habit {
   title: string;
   description?: string;
   userId: string;
+  scheduledDays: number[];
   createdAt: string;
   updatedAt: string;
 }

@@ -1,23 +1,62 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalytics } from '@/hooks/useAnalytics';
-import { useCalendar } from '@/hooks/useCalendar';
-import { useHabitPreferences } from '@/hooks/useHabitPreferences';
-import { useReminderNotifications } from '@/hooks/useReminderNotifications';
-import CalendarGrid from '@/components/CalendarGrid';
-import DayDetailPanel from '@/components/DayDetailPanel';
+import { useWeeklyCalendar } from '@/hooks/useWeeklyCalendar';
+import { habitsApi } from '@/lib/api/habits';
+import WeeklyGrid from '@/components/WeeklyGrid';
+import ScheduleModal from '@/components/ScheduleModal';
+import type { Habit } from '@/types';
+import type { CellInfo } from '@/hooks/useWeeklyCalendar';
 
 export default function CalendarPage() {
   const { user, logout } = useAuth();
   const { habits, checkinsMap, loading, error, refresh } = useAnalytics();
-  const { currentMonth, selectedDay, goToPrevMonth, goToNextMonth, selectDay, calendarDays, checkinsDateMap } =
-    useCalendar(checkinsMap);
-  const { enabledHabits, reminders, isHabitEnabled, toggleHabit, setReminder, removeReminder } =
-    useHabitPreferences();
+  const { weekDays, cellStateMap, weeklySummary, goToPrevWeek, goToNextWeek } =
+    useWeeklyCalendar(habits, checkinsMap);
 
-  useReminderNotifications(habits, reminders);
+  const [scheduleHabit, setScheduleHabit] = useState<Habit | null>(null);
 
-  const enabledHabitIds = habits.filter(h => isHabitEnabled(h.id)).map(h => h.id);
+  async function handleCellClick(habit: Habit, day: Date, cellInfo: CellInfo) {
+    const { state, checkinId } = cellInfo;
+
+    // Células futuras e vazias não são acionáveis
+    if (state === 'future-planned' || state === 'empty') return;
+
+    const dateStr = format(day, 'yyyy-MM-dd');
+
+    if (state === 'done' || state === 'bonus') {
+      // Toggle: remove o check-in
+      if (checkinId) {
+        await habitsApi.deleteCheckin(habit.id, checkinId);
+        await refresh();
+      }
+    } else {
+      // missed / today-planned / today-unplanned → cria check-in
+      try {
+        await habitsApi.checkin(habit.id, dateStr);
+        await refresh();
+      } catch {
+        // 409 = duplicata, ignorar silenciosamente
+      }
+    }
+  }
+
+  function handleScheduleClick(habit: Habit) {
+    setScheduleHabit(habit);
+  }
+
+  const weekLabel = (() => {
+    const start = weekDays[0];
+    const end = weekDays[6];
+    const sameMonth = start.getMonth() === end.getMonth();
+    if (sameMonth) {
+      return `${format(start, 'd')} – ${format(end, 'd')} de ${format(start, 'MMMM yyyy', { locale: ptBR })}`;
+    }
+    return `${format(start, 'd MMM', { locale: ptBR })} – ${format(end, 'd MMM yyyy', { locale: ptBR })}`;
+  })();
 
   if (loading) {
     return (
@@ -58,7 +97,7 @@ export default function CalendarPage() {
               </Link>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Calendário</h1>
-                <p className="text-sm text-gray-500">Visualize seus hábitos mês a mês</p>
+                <p className="text-sm text-gray-500">Planejamento e acompanhamento semanal</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -89,69 +128,90 @@ export default function CalendarPage() {
             </Link>
           </div>
         ) : (
-          <div className="flex flex-col lg:flex-row gap-6">
-            {/* Calendário — 2/3 da largura em desktop */}
-            <div className={selectedDay ? 'lg:w-2/3' : 'w-full'}>
-              <CalendarGrid
-                currentMonth={currentMonth}
-                calendarDays={calendarDays}
-                checkinsDateMap={checkinsDateMap}
-                enabledHabitIds={enabledHabitIds}
-                habits={habits}
-                selectedDay={selectedDay}
-                onPrevMonth={goToPrevMonth}
-                onNextMonth={goToNextMonth}
-                onDayClick={selectDay}
-              />
-
-              {/* Gerenciar visibilidade dos hábitos */}
-              <div className="mt-6 bg-white rounded-xl shadow-sm p-5">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                  Visibilidade no Calendário
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {habits.map(habit => {
-                    const enabled = isHabitEnabled(habit.id);
-                    return (
-                      <button
-                        key={habit.id}
-                        onClick={() => toggleHabit(habit.id)}
-                        className={[
-                          'text-xs px-3 py-1.5 rounded-full border transition-colors font-medium',
-                          enabled
-                            ? 'bg-purple-100 border-purple-300 text-purple-700 hover:bg-purple-200'
-                            : 'bg-gray-100 border-gray-200 text-gray-400 hover:bg-gray-200',
-                        ].join(' ')}
-                      >
-                        {enabled ? '● ' : '○ '}
-                        {habit.title}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+          <div className="flex flex-col gap-6">
+            {/* Navegador de semana */}
+            <div className="flex items-center justify-between bg-white rounded-xl shadow-sm px-5 py-3">
+              <button
+                onClick={goToPrevWeek}
+                className="text-gray-500 hover:text-purple-600 p-2 rounded-lg hover:bg-purple-50 transition-colors text-lg"
+                aria-label="Semana anterior"
+              >
+                ‹
+              </button>
+              <span className="text-sm font-semibold text-gray-700 capitalize">
+                Semana de {weekLabel}
+              </span>
+              <button
+                onClick={goToNextWeek}
+                className="text-gray-500 hover:text-purple-600 p-2 rounded-lg hover:bg-purple-50 transition-colors text-lg"
+                aria-label="Próxima semana"
+              >
+                ›
+              </button>
             </div>
 
-            {/* Painel lateral — 1/3 da largura em desktop */}
-            {selectedDay && (
-              <div className="lg:w-1/3">
-                <DayDetailPanel
-                  selectedDay={selectedDay}
-                  habits={habits}
-                  checkinsMap={checkinsMap}
-                  isHabitEnabled={isHabitEnabled}
-                  reminders={reminders}
-                  onToggleHabit={toggleHabit}
-                  onSetReminder={setReminder}
-                  onRemoveReminder={removeReminder}
-                  onClose={() => selectDay(selectedDay)}
-                  onRefresh={refresh}
-                />
+            {/* Grade semanal */}
+            <WeeklyGrid
+              habits={habits}
+              weekDays={weekDays}
+              cellStateMap={cellStateMap}
+              onCellClick={handleCellClick}
+              onScheduleClick={handleScheduleClick}
+            />
+
+            {/* Resumo da semana */}
+            {weeklySummary.planned > 0 && (
+              <div className="bg-white rounded-xl shadow-sm px-5 py-4 text-sm text-gray-600">
+                <span className="font-semibold text-gray-800">
+                  {weeklySummary.done} de {weeklySummary.planned}
+                </span>{' '}
+                hábitos planejados concluídos esta semana
+                {weeklySummary.planned > 0 && (
+                  <span className="ml-1 text-purple-600 font-semibold">
+                    ({Math.round((weeklySummary.done / weeklySummary.planned) * 100)}%)
+                  </span>
+                )}
               </div>
             )}
+
+            {/* Legenda */}
+            <div className="bg-white rounded-xl shadow-sm px-5 py-4">
+              <p className="text-xs font-semibold text-gray-500 mb-3">Legenda</p>
+              <div className="flex flex-wrap gap-4 text-xs text-gray-600">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs">✓</span>
+                  Concluído
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full border-2 border-purple-400 bg-white" />
+                  Não realizado
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-purple-200 flex items-center justify-center text-purple-700 text-xs">✓</span>
+                  Bônus
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full border-2 border-dashed border-gray-300 bg-white" />
+                  Agendado (futuro)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="text-gray-300 font-bold">—</span>
+                  Não agendado
+                </span>
+              </div>
+            </div>
           </div>
         )}
       </main>
+
+      {/* Modal de agenda */}
+      {scheduleHabit && (
+        <ScheduleModal
+          habit={scheduleHabit}
+          onClose={() => setScheduleHabit(null)}
+          onSaved={refresh}
+        />
+      )}
     </div>
   );
 }

@@ -20,7 +20,7 @@ export const habitsApi = {
     return response.data;
   },
 
-  async update(id: string, data: { title?: string; description?: string }): Promise<Habit> {
+  async update(id: string, data: { title?: string; description?: string; scheduledDays?: number[] }): Promise<Habit> {
     const response = await apiClient<{ data: Habit }>(`/habits/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
